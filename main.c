@@ -15,6 +15,8 @@ int _start(){
 
 	if (kernel32 == 0x0) return 0;
 
+
+
 	return 1;
 }
 
@@ -86,7 +88,7 @@ void* GetKernel32(){
 			else if (((moduleNameCharacter >= 0x61) && (moduleNameCharacter <= 0x7A)) && moduleNameCharacter != kernel32FileNameLetter){
 				break;
 			}
-			
+
 			if ((*(kernel32EncrypedFileName + i + 1)) == 0){
 				moduleFound = 1;
 				break;
@@ -102,14 +104,20 @@ void* GetKernel32(){
 
 void* GetThreadInformationBlock(){
 	#ifdef _WIN64
-		#define SET_THREAD_INFORMATION_BLOCK_INSTRUCTION "mov %%gs:0x30, %0;" //double percentage to signify literal register name, single percentage for operand (either output register operand or input operand)
+		 //double percentage to signify literal register name, single percentage for operand (either output register operand or input operand)
+		#define SET_THREAD_INFORMATION_BLOCK_INSTRUCTION \
+		"mov $0x300, %%eax;" \
+		"sub $0x2d0, %%eax;" \
+		"mov %%gs:(%%eax), %0;"
 	#else
 	#endif
 
 	register void *threadInformationBlock; //holds address to thread information block
 	asm volatile(
 		SET_THREAD_INFORMATION_BLOCK_INSTRUCTION 
-		: "=r" (threadInformationBlock)
+		: "=r" (threadInformationBlock) //output
+		:
+		:"eax" //clobber
 	);
 	return threadInformationBlock;
 }
