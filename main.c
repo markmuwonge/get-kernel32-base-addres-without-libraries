@@ -1,4 +1,5 @@
-void* GetKernel32();
+void* GetKernel32BaseAddress();
+void* GetModuleBaseAddress(void* encrypedFileName);
 void* GetThreadInformationBlock();
 void* GetProcessEnvironmentBlock(void *threadInformationBlock);
 void* GetPEBLdrData(void* processEnvironmentBlock);
@@ -11,26 +12,14 @@ void* GetLdrDataTableEntryFullDllName(void* ldrDataTableEntry);
 #define UNHIDE_LETTER(str)  (str) - 300
 
 int _start(){
-	void *kernel32 = GetKernel32();
+	void *kernel32 = GetKernel32BaseAddress();
 
 	if (kernel32 == 0x0) return 0;
-
-
 
 	return 1;
 }
 
-void* GetKernel32(){
-
-	register void *threadInformationBlock = GetThreadInformationBlock(); //holds address to thread information block
-
-	void *processEnvironmentBlock = GetProcessEnvironmentBlock(threadInformationBlock);
-
-	void *pebLdrData = GetPEBLdrData(processEnvironmentBlock);
-
-	void *inMemoryOrderModuleList = GetInMemoryOrderModuleList(pebLdrData);
-
-	void *kernel32DllBase = 0x0;
+void* GetKernel32BaseAddress(){
 	char kernel32EncrypedFileName[] = { 
 		HIDE_LETTER('k'),
 		HIDE_LETTER('e'),
@@ -46,6 +35,21 @@ void* GetKernel32(){
 		HIDE_LETTER('l'),
 		0
 	};
+
+	return GetModuleBaseAddress(kernel32EncrypedFileName);
+	
+}
+
+void* GetModuleBaseAddress(void* encrypedModuleName){
+	void *moduleBaseAddress = 0x0;
+
+	register void *threadInformationBlock = GetThreadInformationBlock(); //holds address to thread information block
+
+	void *processEnvironmentBlock = GetProcessEnvironmentBlock(threadInformationBlock);
+
+	void *pebLdrData = GetPEBLdrData(processEnvironmentBlock);
+
+	void *inMemoryOrderModuleList = GetInMemoryOrderModuleList(pebLdrData);
 
 	for (void *flink = *(void **)inMemoryOrderModuleList; ; flink = *(void **) flink){
 		void *ldrDataTableEntry = GetLdrDataTableEntryFromFlink(flink);
@@ -77,7 +81,7 @@ void* GetKernel32(){
 
 		char moduleFound = 0;
 		for (int i = 0; ; i++){
-			char kernel32FileNameLetter = UNHIDE_LETTER((*(kernel32EncrypedFileName + i)));
+			char kernel32FileNameLetter = UNHIDE_LETTER((*(encrypedModuleName + i)));
 			char moduleNameCharacter = (char) *(void *)(moduleNameStart + (i * 2));
 
 			//uppercase letter
@@ -89,17 +93,17 @@ void* GetKernel32(){
 				break;
 			}
 
-			if ((*(kernel32EncrypedFileName + i + 1)) == 0){
+			if ((*(encrypedModuleName + i + 1)) == 0){
 				moduleFound = 1;
 				break;
 			}
 		}
 		if (moduleFound){
-			kernel32DllBase = ldrDataTableEntryDllBase;
+			moduleBaseAddress = ldrDataTableEntryDllBase;
 			break;
 		}
 	}
-	return kernel32DllBase;
+	return moduleBaseAddress;
 }
 
 void* GetThreadInformationBlock(){
